@@ -134,10 +134,25 @@ nohup python train1.py clean_train1_4
 
 ---
 
-#python 2 or python 3? should be python3. Running with or without sudo seems to run different
-paperspace@psroeggij:~/home/paperspace/gsttaco/gst-tacotron-master$ sudo python preprocess.py --dataset ljspeech
+# RUN THESE FIRST - otherwise libcublas.so.9.0: cannot open shared object file
+export PATH=${PATH}:/usr/local/cuda-9.0/bin
+export CUDA_HOME=${CUDA_HOME}:/usr/local/cuda:/usr/local/cuda-9.0
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/cuda-9.0/lib64
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/extras/CUPTI/lib64
+#EC2
+export PATH=${PATH}:/usr/local/cuda-10.0/bin
+export CUDA_HOME=${CUDA_HOME}:/usr/local/cuda:/usr/local/cuda-10.0
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/cuda-10.0/lib64
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/extras/CUPTI/lib64
 
-paperspace@psroeggij:~/home/paperspace/dvc2/dvc2$ nohup python2 train1.py clean_train1_10
+#python 2 or python 3? should be python3. Running with or without sudo seems to run different
+paperspace@psroeggij:~/home/paperspace/gsttaco/gst-tacotron-master$ python3 preprocess.py --dataset ljspeech
+python3 train.py
+
+# try with both python2 and python3
+paperspace@psroeggij:~/home/paperspace/dvc2/dvc2$ nohup python train1.py clean_train1_2
+python eval1.py test
+python train2.py github-model train2_1
 # tensorflow 1.12: Aborted(core dumped), 1.7: Illegal instruction (core dumped), 
 # 1.5: InvalidArgumentError (see above for traceback): No OpKernel was registered to support Op 'NcclAllReduce' with these attrs.  Registered devices: [CPU], Registered kernels: <no registered kernels>
 # uninstall tensorflow and only have tensorflow-gpu: libcublas.so.9.0: cannot open shared object file: No such file or directory (need CUDA 9.0)
@@ -148,10 +163,35 @@ https://github.com/tensorflow/tensorflow/issues/15604 #libcublas.so.9.0: cannot 
 https://github.com/tensorflow/tensorflow/issues/6698#issuecomment-431662397
 https://medium.com/@zhanwenchen/install-cuda-and-cudnn-for-tensorflow-gpu-on-ubuntu-79306e4ac04e
 
+# FOR PYTHON2
 CUDA 9.0 (https://developer.nvidia.com/cuda-90-download-archive?target_os=Linux)
-tensorflow-gpu 1.5 (pip install --upgrade tensorflow-gpu==1.4.1)
+tensorflow-gpu 1.5 (sudo pip3 install --upgrade tensorflow-gpu==1.5)
 CudNN 7.0.x? (https://developer.nvidia.com/rdp/cudnn-archive)
 nvidia-smi 384 (sudo apt-get install nvidia-390)
+
+--- gst-tacotron
+
+# gst-tacotron: code for turning custom obama, trump etc. voices into the format used by ljspeech
+
+import glob, os, csv
+files = glob.glob(os.getcwd() + '/donald-trump/*.txt')
+
+filenames_and_text = []
+
+for i in files:
+    with open(i) as f:
+        filename = os.path.basename(i)[:-4] # remove .txt at end
+        text = str(f.readlines())[2:-2] # remove first 2 and last 2 characters
+        filenames_and_text.append(filename + '|' + text)
+
+with open('trump.csv', 'w', newline='') as f:
+    writer = csv.writer(f)
+    for val in filenames_and_text:
+        writer.writerow([val])
+
+---
+
+# for facebook voiceloop, trying to preprocess based on suggestions
  
 import os
 import glob
@@ -174,3 +214,22 @@ for i in files:
     print(librosa.get_duration(y), librosa.get_duration(yt))
     time.sleep(1)
     #librosa.output.write_wav(i, yt, sr)
+
+---
+
+# code from preprocessing.py in gst-tacotron
+
+count = 0 #
+futures = []
+index = 1
+with open('metadata-lj.csv') as f:
+    for line in f:
+        assert count < 10
+        parts = line.strip().split('|')
+        wav_path = os.path.join(os.getcwd(), 'wavs', '%s.wav' % parts[0])
+        print(parts)
+        count += 1
+        text = parts[1]
+        futures.append(executor.submit(partial(_process_utterance, out_dir, index, wav_path, text)))
+        index += 1
+return [future.result() for future in tqdm(futures)]
