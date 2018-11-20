@@ -148,6 +148,12 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/extras/CUPTI/lib64
 #python 2 or python 3? should be python3. Running with or without sudo seems to run different
 paperspace@psroeggij:~/home/paperspace/gsttaco/gst-tacotron-master$ python3 preprocess.py --dataset ljspeech
 python3 train.py
+# for https://github.com/keithito/tacotron and amazon machine
+/home/ubuntu/taco/taco/pdata/data/donald-trump/data/wav
+# trying to train from checkpoint
+python3 train.py --restore_step 1
+# test model
+python3 eval.py --checkpoint '/home/ubuntu/taco/taco/logs-tacotron/model.ckpt-442000'
 
 # try with both python2 and python3
 paperspace@psroeggij:~/home/paperspace/dvc2/dvc2$ nohup python train1.py clean_train1_2
